@@ -1,0 +1,258 @@
+package wikiPageRank;
+
+import java.io.FileNotFoundException;
+
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.Scanner;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.*;
+import org.apache.hadoop.io.FloatWritable;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.FileInputFormat;
+import org.apache.hadoop.mapred.FileOutputFormat;
+import org.apache.hadoop.mapred.JobClient;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Mapper;
+import org.apache.hadoop.mapred.Reducer;
+import org.apache.hadoop.mapred.TextInputFormat;
+import org.apache.hadoop.mapred.TextOutputFormat;
+
+/**
+ * @author SRoy
+ * Implementation concepts taken from http://blog.xebia.com/2011/09/27/wiki-pagerank-with-hadoop/
+ *
+ */
+public class PageRank {
+
+	private static NumberFormat nf = new DecimalFormat("00");
+	public static String outPath;
+
+
+	public static void main(String[] args) throws Exception {
+		 
+		String inputPath = args[0];
+		
+		String outTmp = args[1]+"/tmp";
+		outPath = args[1]+"/results";
+
+		if (args.length < 1){
+			System.out.println("Not enougg arguments.  Need  input and output");
+			return;
+		}
+
+		PageRank pageRanking = new PageRank();
+
+		pageRanking.xmlParser(inputPath, outTmp+"/InlinkPage");
+
+		pageRanking.calcTotalPages(outPath+"/pageRank.outlink.out", outTmp+"/PageCount");
+
+		String numPages = getNumPages(outPath+"/pageRank.n.out");
+
+		pageRanking.prepForCalc(outTmp+"/InlinkPage", outTmp+"/ranking/iter00", numPages);
+
+		int runs = 0;
+		for (; runs < 8; runs++) {
+			pageRanking.rankCalc(outTmp+"/ranking/iter"+nf.format(runs), outTmp+"/ranking/iter"+nf.format(runs + 1), numPages);
+		}
+
+		pageRanking.configureOutput(outTmp+"/ranking/iter"+nf.format(runs), outTmp+"/FinalPageRank", numPages);
+
+		mergeFiles(outTmp+"/ranking/iter01", outPath+"/pageRank.iter1.out");
+		mergeFiles(outTmp+"/ranking/iter08", outPath+"/pageRank.iter8.out");
+	}
+
+	/**
+	 * Merges the part files of the hadoop output to one file in the same filesystem
+	 * @param inputPath
+	 * @param outputPath
+	 */
+	public static void mergeFiles(String inputPath, String outputPath){
+
+		Configuration confMerge = new Configuration();
+		Path srcPath = new Path(inputPath);
+		Path destPath = new Path(outputPath);
+
+		FileSystem fs;
+		try {
+			fs = destPath.getFileSystem(confMerge);
+			FileUtil.copyMerge(fs, srcPath, fs, destPath, false, confMerge, null);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * @param inputPath
+	 * @param outputPath
+	 * @throws IOException
+	 */
+	public void xmlParser(String inputPath, String outputPath) throws IOException {
+		JobConf conf = new JobConf(PageRank.class);
+
+		conf.set(XmlInputFormat.START_TAG_KEY, "<page>");
+		conf.set(XmlInputFormat.END_TAG_KEY, "</page>");
+
+		// Input / Mapper
+		FileInputFormat.setInputPaths(conf, new Path(inputPath));
+		conf.setInputFormat(XmlInputFormat.class);
+		conf.setMapperClass(ExtractWikiPageMapper.class);
+
+		// Output / Reducer
+		FileOutputFormat.setOutputPath(conf, new Path(outputPath));
+		conf.setOutputFormat(TextOutputFormat.class);
+		conf.setOutputKeyClass(Text.class);
+		conf.setOutputValueClass(Text.class);
+		conf.setReducerClass(ExtractWikiPageReducer.class);
+
+		JobClient.runJob(conf);
+
+		mergeFiles(outputPath, outPath+"/pageRank.outlink.out");
+	}
+
+	/**
+	 * @param inputPath
+	 * @param outputPath
+	 * @param numPages
+	 * @throws IOException
+	 */
+	private void rankCalc(String inputPath, String outputPath, String numPages) throws IOException {
+
+		Configuration conf = new Configuration();
+		conf.set("NumberOfPages", numPages);
+
+		JobConf rankConf = new JobConf(conf, PageRank.class);
+
+		rankConf.setOutputKeyClass(Text.class);
+		rankConf.setOutputValueClass(Text.class);
+
+		rankConf.setInputFormat(TextInputFormat.class);
+		rankConf.setOutputFormat(TextOutputFormat.class);
+
+		FileInputFormat.setInputPaths(rankConf, new Path(inputPath));
+		FileOutputFormat.setOutputPath(rankConf, new Path(outputPath));
+
+		rankConf.setMapperClass(RankCalculateMapper.class);
+		rankConf.setReducerClass(RankCalculateReducer.class);
+
+		JobClient.runJob(rankConf);
+	}
+
+	/**
+	 * @param inputPath
+	 * @param outputPath
+	 * @throws IOException
+	 */
+	private void calcTotalPages(String inputPath, String outputPath) throws IOException {
+
+		JobConf conf = new JobConf(PageRank.class);
+		conf.setOutputKeyClass(Text.class);
+		conf.setOutputValueClass(IntWritable.class);
+		conf.setMapperClass(TotalPageCalculateMapper.class);
+		conf.setCombinerClass(TotalPageCalculateReducer.class);
+		conf.setReducerClass(TotalPageCalculateReducer.class);
+		conf.setInputFormat(TextInputFormat.class);
+		conf.setOutputFormat(TextOutputFormat.class);
+		FileInputFormat.setInputPaths(conf, new Path(inputPath));
+		FileOutputFormat.setOutputPath(conf, new Path(outputPath));
+		JobClient.runJob(conf);
+
+		mergeFiles(outputPath, outPath+"/pageRank.n.out");
+	}
+
+	/**
+	 * counts the number of pages participating in the calculation
+	 * @param filePath
+	 * @return
+	 */
+	public static String getNumPages(String filePath){
+
+		String numPg = null;
+
+		Configuration confMerge = new Configuration();
+		Path pth = new Path(filePath);
+		
+		FileSystem fs;		
+		try {      
+				fs = pth.getFileSystem(confMerge);
+				BufferedReader br=new BufferedReader(new InputStreamReader(fs.open(pth)));
+				String line = br.readLine().trim();
+				numPg = line;
+		}      
+		catch (IOException e){      
+			System.out.println("Sorry! This file is not found");      
+		}
+		return numPg; 
+
+	}
+
+	/**
+	 * configures the output to produce concatenated and descending order or page rank.
+	 * @param inputPath
+	 * @param outputPath
+	 * @param numPages
+	 * @throws IOException
+	 */
+	private void configureOutput(String inputPath, String outputPath, String numPages) throws IOException {
+
+		Configuration conf = new Configuration();
+		conf.set("NumberOfPages", numPages);
+
+		JobConf rankJob = new JobConf(conf, PageRank.class);
+
+		rankJob.setOutputKeyClass(FloatWritable.class);
+		rankJob.setOutputValueClass(Text.class);
+		rankJob.setInputFormat(TextInputFormat.class);
+		rankJob.setOutputFormat(TextOutputFormat.class);
+
+		FileInputFormat.setInputPaths(rankJob, new Path(inputPath));
+		FileOutputFormat.setOutputPath(rankJob, new Path(outputPath));
+
+		rankJob.setOutputKeyComparatorClass(SortFloatComparator.class);     
+		rankJob.setMapperClass(RankConfigureOutputMapper.class);
+		rankJob.setReducerClass(RankConfigureOutputReducer.class);
+
+		rankJob.setNumReduceTasks(1);
+
+		JobClient.runJob(rankJob);
+
+		mergeFiles(outputPath, outPath+"/pageRank.out");
+	}
+
+	/**
+	 * @param inputPath
+	 * @param outputPath
+	 * @param numPages
+	 * @throws IOException
+	 */
+	private void prepForCalc(String inputPath, String outputPath, String numPages) throws IOException {
+
+		Configuration conf = new Configuration();
+		conf.set("NumberOfPages", numPages);
+
+		JobConf rankJob = new JobConf(conf, PageRank.class);
+
+		rankJob.setOutputKeyClass(Text.class);
+		rankJob.setOutputValueClass(Text.class);
+		rankJob.setInputFormat(TextInputFormat.class);
+		rankJob.setOutputFormat(TextOutputFormat.class);
+
+		FileInputFormat.setInputPaths(rankJob, new Path(inputPath));
+		FileOutputFormat.setOutputPath(rankJob, new Path(outputPath));
+
+		rankJob.setMapperClass(CalcPrepMapper.class);
+
+		JobClient.runJob(rankJob);
+	}
+
+}
