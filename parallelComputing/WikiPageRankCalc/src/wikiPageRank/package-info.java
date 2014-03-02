@@ -1,5 +1,0 @@
-/**
- * @author hduser
- *
- */
-package wikiPageRank;
