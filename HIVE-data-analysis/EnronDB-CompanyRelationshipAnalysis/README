@@ -1,0 +1,40 @@
+Objective:
+
+To analyze per email exchanges and thus the relationship established depending on replied mail count between external companies and Enron. Both, a comprehensive analysis and yearly relationship analysis is established for the time frame 1979-2002.
+------------------------------------------------------------------------------------------------------------------------------------------
+Hypothesis:
+
+A company is said to be in good relationship with an external organization if there is a healthy exchange of emails between the organizations. A healthy exchange is determined by ratio of mails sent and received to and from the external organization. Un-replied mails indicate no interest in establishing connections from either of the sides. However, more mails received from an external company may the interest of the external organization in the host company.
+-----------------------------------------------------------------------------------------------------------------------------------------
+Calculation Metrics:
+
+From the above hypothesis, since mails received from an external organization implies interest of external organization to connect with Enron and thus maintain a healthy relationship, we regard the importance of received mails as 1.5 times the importance of sent mails.
+Keeping the above in mind, the importance of relationship between Enron and the external organizations is hypothetically calculated as:
+quotient = (((1.5 * count of received mails) + sent mails)/2) * number of years the company conversed with enron.
+-----------------------------------------------------------------------------------------------------------------------------------------
+Implementation details:
+
+The query does the following :
+1. extracts all domain names from the email addresses to be treated as distinct companies.
+2. extracts all distinct 'to' address from comma separated attributes from the 'to' field and treats them as 
+distinct 'to' addresses
+3. Aggregates all distint reciepient and sender domains to get the total number of mails sent and recieved per year.
+The resultant table will contain number of emails to and from the participating companies per year from 1979-2002, null wherever applicable.
+4. A quotient is assigned depending on the emails for each company per year.
+5. Aggregates all emails per company over a span of 23 years
+6. Calculates the relationship quotient and orders the data by descending order of quotient showing the most important relationship on top.
+
+Note : 1991-1996 has no email records. Hence no rows appear in the report. However, since there are no emails from or to any of the external companies, the period can be treated with equal weightage for all organizations. Hence, the graph is extrapolated for the region for all resulting organizations.
+------------------------------------------------------------------------------------------------------------------------------------------
+Conclusions :
+
+1. 2001-2002 exhibits a boom in building relationships with other companies
+2. AOL has the best relationship with Enron. However, the conversations were made mostly during 2000-2001.
+3. A steadily increasing and healthy relationship was maintained with AKLLP and KSLAW.
+------------------------------------------------------------------------------------------------------------------------------------------
+Visualizations:
+
+Three visualizations are presented to understand company relationship statistics :
+1. A comprehensive analysis to find which company had the strongest relationship with Enron irrespective of year.
+2. A yearly analysis showing the sent and received mails from top 20 healthy-relatives of Enron. 
+3. A yearly analysis of relationship quotient for top 20 healthy relatives of Enron, keeping in consideration the number of emails sent and received, calculated by the formula hypothesized.

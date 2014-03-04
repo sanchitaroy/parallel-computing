@@ -1,0 +1,35 @@
+The work is done in AWS. Please change to your buckets while replicating. Also, the dataset was available as a part of university project.
+Please use the public available dataset in your own buckets.
+--------------------------------------------------------------------------------------------------------------------------------------
+Objective :
+
+To analyze from a dataset of movie reviews and ratings for a span of 5 years, what could be the upcoming movies that has a considerable probability of being a hit in the next years.
+---------------------------------------------------------------------------------------------------------------------------------------
+Assumption:
+
+The users who watch and review the maximum number of movies consistently, are potential users who would continue to do the same in future years. The kind of movies that those users rate the best are potentially the kind/genre of movies to be rated good in the upcoming years as well by these potential users. And the potential users have a high probability to watch and rate the movies in the upcoming years. However, the factor of accuracy of the potential users also plays a role in the prediction.
+---------------------------------------------------------------------------------------------------------------------------------------
+Implementation details:
+
+The queries do the following :
+1. Generates the average rating of the movies based on comprehensive rating given by all users.
+2. Generates the most frequent 500 users in the timespan.
+3. Generates the deviation of rating for the selected frequent users from the overall average rating per movie to understand the accuracy by which the frequent users rate the movies.
+4. Generates the average deviation per user for all the movies the user has rated.
+5. The frequent user with least average deviation is a potentially accurate critique for the coming years. However, this potentiality depends on how many movies the user has rated as well. Since the factor is directly proportional to the number of movies and inversely proportional to the average deviation of the user, the potential factor is calculated as (number of movies/average deviation) for each user.
+6. Decides how genuinely a movie is a good movie by generating a movie potential factor per movie per potential user by multiplying the accuracy potential derived in the above queries.
+7. Decides whether the movie is a potential participant for future movies of the same kind by checking how many potential users have rated it high. Hence, we have filtered out the rating criteria and the potential factor of the users to a high value.
+---------------------------------------------------------------------------------------------------------------------------------------
+Conclusion:
+
+1. Movies like ‘The Order’, ‘Passion of Christ’, ‘Lord of the Rings’ proves to be the most potential movie types in the era.
+2. It is also observed using this metric, the frequent users have liked all the movies of the series ‘Lord of the Rings’ and the Bourne series. It can be derived that a Bourne series movie or LOTR movie in the next recent years would also be a hit. 
+3. Superhero movies, action movies and animated movies are mostly watched by the frequent users and rated high. This can predict the type of movies that can be a hit in future years in this era (we already know how hit such genres of movies are!)
+----------------------------------------------------------------------------------------------------------------------------------------
+Future work:
+
+The analysis is done taking in consideration 500 such frequent users. Optimizations can be done in the following ways to get a more accurate prediction:
+1. This number 500 can be optimized depending on factors like how frequently did a user rate the movies with respect to time instead of only number of ratings.
+2. The users can also be classified on the basis of genre of movies they have rated the most to enhance the accuracy of prediction. One frequent user may only rate a movie of same genre. Such cases can be irradiated. However, it is less likely for the most frequent user to rate movies of same genre.
+3. In the presented analysis, a comprehensive time frame of 6years is considered. This can be extended to time-slotting the period to analyze the trend of likings of movies over the year. This can give a much accurate prediction of the future movies.
+4. A hard coded value of ratings greater than 3 and potential factor of user greater than 2500 is taken for ease of data handling. This can be made comprehensive to present the least liked movies as well. 
