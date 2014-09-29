@@ -1,0 +1,5 @@
+This is for task 2 - to determine the aggregated values for each key.
+Navigate to the folder containing source code,
+1. Place the file “100000_key-value_pairs.csv” in the folder containing the source code.
+2. Compile code : mpic++ -o MPI MPIReduce.cpp [MPI is the executable generated]
+3. Run the program : mpirun -np 4 ./MPI

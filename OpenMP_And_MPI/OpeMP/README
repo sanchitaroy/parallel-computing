@@ -1,0 +1,4 @@
+This is for task 1 - Parallel implementation of page rank algorithm using openMP
+Navigate to the folder containing source code (src)
+1. Compile code : g++ -o OMP -fopenmp OMPPageRank.cpp [OMP is the executable generated]
+2. Run the program : ./OMP <filename(keep file in 'src') or path with filename> [file used for development : facebook_combined.txt]

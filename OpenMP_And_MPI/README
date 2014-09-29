@@ -1,0 +1,72 @@
+Parallel Page Rank Calculation using OpenMP
+
+Pre-Requisites :
+Undirected and unweighted graph, presented in tab-separated csv or text file.
+File used for development and testing : facebook_combined.txt
+
+Assumptions :
+1. Since the graph representation is undirected, there would be an incoming and outgoing link to
+and from every node. Hence, there would be no dead ends possible. However, the algorithm
+considers the teleporting and Beta-factor(0.85). in its implementation for accuracy with the
+inherent page-rank algorithm (however, not adding the same does not change the calculations.).
+2. The adjacency matrix representation of an undirected graph represents a link to and from each
+node. Thus, transpose of the matrix is same as the original matrix as a property.
+
+Sequential Algorithm Implemented :
+1. Read the node graph to an adjacency matrix.
+2. Initialize the adjacency matrix such that each link (value at adjMat[row][column]) is initialized
+to 1/n where n is the number of outgoing links (outgoing = incoming for undirected graphs).
+This is done by initializing each of AdjMat[row][column] by a value 1/n where n is the sum of
+all 1s in the column of adjacency matrix. However, to take care of teleporting (though not
+required for undirected graphs), I have initialized the values of all members of the column as
+AdjMat-ij= B*M-ij+ (1-B)/N. This follows the same algorithm as described in class.
+3. Initialize rMat[column] by 1/n. Do matrix multiplication of AdjMat and rMat iteratively till a
+convergence factor (rMat of previous iteration – rMat of current iteration <= 0.00001)
+
+Parallelism exploited :
+1. The matrix multiplication is parallelized, run in 100 chunks.
+[#pragma omp parallel shared(Mat,rMat,rMatTemp,nthreads,chunk) private(i,tid)
+//code
+#pragma omp for schedule(static, chunk)
+//For loop for matrix multiplication]
+2. Calculation of sum of all outgoing links is done in parallel.
+[#pragma omp parallel for reduction(+:sum)]
+3. A bubble sort algorithm is implemented to produce a result in descending order of page rank.
+The algorithm is parallelized by running the for loop for bubble sort in parallel.
+[#pragma omp parallel private(tempKey, tempVal)
+//code
+#pragma omp for reduction(+:counter)
+//inner for loop implementing bubble sort]
+4. parallelism is exploited in several other places like initializing the arrays in parallel, etc.
+
+Parallel Reducer using MPI
+
+Pre-Requisites :
+Place the file “100000_key-value_pairs.csv” in the folder containing the source files. The file name is
+hardcoded.
+
+Assumptions :
+The task is made to run assuming 4 processors.
+Algorithm Implemented :
+1. Arrays are used as the data structure to implement the algorithm. The number of key-value pairs
+and the maximum key value is determined by reading the file. Accordingly all arrays are
+initialized (by max key + 1, which is later discarded. This will allow the code to function
+properly for any range of keys, negative or positive)
+2. Processor 0 reads the file, divides into four arrays of nearly equal size by using a modulo
+function on the row number/line number of the file (executing a modulo function on key can
+ensure no same key is passed on to the same array. But such a situation would lead to unequal
+division of labor in a more generic case).
+3. Reduction :
+	1. Reduction – 1 : processor 0 sends three arrays to three other processors. The four processors
+		process the key-value pair to get a sorted output of keys and aggregated values for each key.
+	2. Reduction – 2/ Aggregation :
+		1. Processor 0 sends its processed data to processor 1. Processor 1 aggregates the data with
+			its processed data, gets rid of duplicates by adding the values for duplicate keys.
+			Processor 1 returns the aggregated data back to processor 0.
+		2. Processor 2 sends its processed data to processor 3. Processor 3 aggregates the data with
+			its processed data, gets rid of duplicates by adding the values for duplicate keys.
+			Processor 3 returns the aggregated data back to processor 0.
+4. Processor 0 receives the aggregated data from processor 1 and processor 2. It the aggregates the
+two chunks of data, gets rid of duplicates by adding the values for duplicate keys. Processor 0
+then outputs the resultant sorted data (data is sorted with respect to keys) into an output file.
+
