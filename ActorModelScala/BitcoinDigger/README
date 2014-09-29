@@ -1,4 +1,0 @@
-Uses Akka actors
-
-Remote actors use actor selection and requires to run manually at both ends (server and client)
-It can be optimized to create the actors from client side with no manual dependency.
